@@ -29,7 +29,7 @@ def get(first_line):
     full_path = get_full_path(path)
     print "[INFO ] Requested file: " + path
     # Cgi-bin
-    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"):
+    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/") and os.path.isfile(path):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["POST_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("GET method isn't allowed on requested file")
@@ -119,7 +119,6 @@ def post(first_line, body):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["GET_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("POST method isn't allowed on requested file")
-        print PROPERTIES["HTTP_ROOT"] + path
         pls = subprocess.Popen(
             [PROPERTIES["HTTP_ROOT"] + path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         pls.stdin.write(body)
@@ -136,7 +135,6 @@ def send_ok(client, body):
     response_headers = {}
     res += body
     print "[INFO ] Send: " + answer
-    print res
     client.sendall(res)
 
 
