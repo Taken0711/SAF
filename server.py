@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
+import glob
 import platform
 import socket
 import os
@@ -13,29 +14,70 @@ class MethodNotAllowed(Exception):
     def __init__(self, message):
         self.message = message
 
+
 def get(first_line):
-    path = first_line.split(" ")[1].strip()
+    raw_path = first_line.split(" ")[1].strip()
+    splited_path = raw_path.split("?")
+    path = splited_path[0]
+    query = splited_path[1] if len(splited_path) > 1 else ""
+    # Root to index
+    '''if path == "/":
+        path = "/index.html"'''
+    full_path = get_full_path(path)
     print "[INFO ] Requested file: " + path
-    if path == "/":
-        path = "/index.html"
+    # Cgi-bin
     if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["POST_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("GET method isn't allowed on requested file")
-        os.environ["QUERY_STRING"] = path.split("?")[1]
-        full_path = PROPERTIES["HTTP_ROOT"] + path.split("?")[0]
+        os.environ["QUERY_STRING"] = query
         print "[DEBUG] Detected platform: " + platform.system()
         if platform.system() == 'Windows':
             full_path = full_path.replace("/", "\\")
-        print "[DEBUG] Full cgi-bin path: " + full_path
+        print "[INFO ] Executing cgi-bin: " + full_path
         pls = subprocess.Popen(
             [full_path], shell=True, stdout=subprocess.PIPE)
         return pls.stdout.read()
+    # File or directory
     else:
-        full_path =  PROPERTIES["HTTP_ROOT"] + path.split("?")[0]
+        if os.path.isdir(full_path):
+            if PROPERTIES["INDEX_REDIRECT"] == "True":
+                index_path = full_path + "/" + PROPERTIES["DIRECTORY_INDEX"]
+                if os.path.isfile(index_path):
+                    full_path = index_path
+                    print "[INFO ] Opening file: " + full_path
+                    with open(full_path) as f:
+                        return f.read()
+            return generate_explorer(path)
         print "[INFO ] Opening file: " + full_path
         with open(full_path) as f:
             return f.read()
+
+
+def generate_explorer(path):
+    full_path = get_full_path(path)
+    print "[INFO ] Listing directory: " + full_path
+    title = "Index of " + path
+    list_html = ""
+    files = os.listdir(full_path)
+    files.sort(key=str.lower)
+    for e in files:
+        tmp_path = "{0}/{1}".format(path, e)
+        is_dir = os.path.isdir(get_full_path(tmp_path))
+        list_html += "<a href=\"{0}\">{1}</a>\n".format(tmp_path, e + ("/" if is_dir else ""))
+    res = "<html>\n" \
+          "  <head>\n" \
+          "    <title>"+title+"</title>\n" \
+          "  </head>\n" \
+          "  <body>\n" \
+          "    <h1>"+title+"</h1>\n" \
+          "    <pre>\n" \
+          +list_html+ \
+          "<hr/></pre>\n" \
+          "<address>Powerred by Slow as F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
+          "</body></html>"
+    return res
+
 
 def post(first_line, body):
     path = first_line.split(" ")[1].strip()
@@ -51,11 +93,13 @@ def post(first_line, body):
         pls.stdin.close()
         return pls.stdout.read()
 
+
 def send_ok(client, body):
     answer = "HTTP/1.1 200 OK"
     res = answer+"\n\n"+body
     print "[INFO ] Send: " + answer
     client.sendall(res)
+
 
 def send_error(client, code, msg):
     error = str(code) + " " + ERRORS[str(code)]
@@ -73,6 +117,7 @@ def send_error(client, code, msg):
     print "[ERROR] " + error
     client.sendall(res)
 
+
 def client_read(client):
     return client.recv(int(PROPERTIES["BUFFER_SIZE"]))
 
@@ -89,13 +134,17 @@ def load_properties():
         exit(0)
 
 
+def get_full_path(path):
+    return PROPERTIES["HTTP_ROOT"] + path
+
+
 def main():
     print "[INFO ] Starting server..."
     load_properties()
     sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sckt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sckt.bind((PROPERTIES["ADRESS"], int(PROPERTIES["PORT"])))
-    print "[INFO ] Now listening on " + PROPERTIES["ADRESS"] + ":" + str(PROPERTIES["PORT"]) +"\n"
+    sckt.bind((PROPERTIES["ADDRESS"], int(PROPERTIES["PORT"])))
+    print "[INFO ] Now listening on " + PROPERTIES["ADDRESS"] + ":" + str(PROPERTIES["PORT"]) +"\n"
 
     while True:
         sckt.listen(5)
