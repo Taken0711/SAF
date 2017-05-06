@@ -8,6 +8,7 @@
 * Split to regex ? especially when split first line in GET
 * OO and tests
 * Headers and response body must be handle by cgi-bin
+* Clean way to handle \n after headers when not cgi
 
 ## Configuration
 ### Property file

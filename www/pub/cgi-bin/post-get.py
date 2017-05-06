@@ -5,6 +5,7 @@ import os
 import sys
 
 def main():
+    print "Content-type: text/html\n"
     print """<html>
     <head>
         <title>Junac - POST/GET</title>

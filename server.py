@@ -29,7 +29,7 @@ def get(first_line):
     full_path = get_full_path(path)
     print "[INFO ] Requested file: " + path
     # Cgi-bin
-    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"):
+    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/") and os.path.isfile(path):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["POST_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("GET method isn't allowed on requested file")
@@ -51,11 +51,11 @@ def get(first_line):
                     print "[INFO ] Opening file: " + full_path
                     with open(full_path) as f:
                         return f.read()
-            return generate_explorer(path)
+            return "\n" + generate_explorer(path)
         print "[INFO ] Opening file: " + full_path
         add_headers("Content-type", get_mime_type(path))
         with open(full_path, 'rb') as f:
-            return f.read()
+            return "\n" + f.read()
 
 
 def get_parent_dir(path, n=1):
@@ -119,7 +119,6 @@ def post(first_line, body):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["GET_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("POST method isn't allowed on requested file")
-        print PROPERTIES["HTTP_ROOT"] + path
         pls = subprocess.Popen(
             [PROPERTIES["HTTP_ROOT"] + path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         pls.stdin.write(body)
@@ -134,9 +133,8 @@ def send_ok(client, body):
     for e in response_headers:
         res += e + ": " + response_headers[e] + "\n"
     response_headers = {}
-    res +="\n"+body
+    res += body
     print "[INFO ] Send: " + answer
-    print res
     client.sendall(res)
 
 
