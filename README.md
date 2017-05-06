@@ -1,8 +1,6 @@
 ## TODO
 
 #### New features
-* Return type when ftp mode
-* Directory navigation
 
 #### Improvements
 * Split to regex ? especially when split first line in GET
@@ -10,7 +8,9 @@
 * Headers and response body must be handle by cgi-bin
 * Clean way to handle \n after headers when not cgi
 
+
 ## Configuration
+
 ### Property file
 * **HTTP_ROOT**: Define the server HTTP_ROOT
 * **BUFFER_SIZE**: The buffer size of the socket used to read client request
