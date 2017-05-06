@@ -69,13 +69,16 @@ def generate_explorer(path):
     title = "Index of " + path
     list_html = ""
     if path != "/":
-        list_html += "<a href=\"" + get_parent_dir(path) + "\">../</a>\n"
+        list_html += "<img src=\"/icons/par.png\"/><a href=\"" + get_parent_dir(path) + "\">../</a>\n"
     files = os.listdir(full_path)
     files.sort(key=str.lower)
     for e in files:
         tmp_path = path + e
         is_dir = os.path.isdir(get_full_path(tmp_path))
-        list_html += "<a href=\"{0}\">{1}</a>\n".format(tmp_path, e + ("/" if is_dir else ""))
+        if is_dir:
+            list_html += "<img src=\"/icons/dir.png\"/><a href=\"{0}\">{1}</a>\n".format(tmp_path, e + "/")
+        else:
+            list_html += "<img src=\"/icons/fil.png\"/><a href=\"{0}\">{1}</a>\n".format(tmp_path, e + "/")
     res = "<html>\n" \
           "  <head>\n" \
           "    <title>" + title + "</title>\n" \
