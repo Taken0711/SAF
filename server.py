@@ -51,11 +51,11 @@ def get(first_line):
                     print "[INFO ] Opening file: " + full_path
                     with open(full_path) as f:
                         return f.read()
-            return generate_explorer(path)
+            return "\n" + generate_explorer(path)
         print "[INFO ] Opening file: " + full_path
         add_headers("Content-type", get_mime_type(path))
         with open(full_path, 'rb') as f:
-            return f.read()
+            return "\n" + f.read()
 
 
 def get_parent_dir(path, n=1):
