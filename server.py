@@ -55,6 +55,8 @@ def get(first_line):
 
 
 def generate_explorer(path):
+    if not path.endswith("/"):
+        path += "/"
     full_path = get_full_path(path)
     print "[INFO ] Listing directory: " + full_path
     title = "Index of " + path
@@ -62,7 +64,7 @@ def generate_explorer(path):
     files = os.listdir(full_path)
     files.sort(key=str.lower)
     for e in files:
-        tmp_path = "{0}/{1}".format(path, e)
+        tmp_path = path + e
         is_dir = os.path.isdir(get_full_path(tmp_path))
         list_html += "<a href=\"{0}\">{1}</a>\n".format(tmp_path, e + ("/" if is_dir else ""))
     res = "<html>\n" \
@@ -74,7 +76,7 @@ def generate_explorer(path):
           "    <pre>\n" \
           +list_html+ \
           "<hr/></pre>\n" \
-          "<address>Powerred by Slow as F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
+          "<address>Powerred by Slow As F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
           "</body></html>"
     return res
 
