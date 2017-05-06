@@ -134,7 +134,7 @@ def send_ok(client, body):
     for e in response_headers:
         res += e + ": " + response_headers[e] + "\n"
     response_headers = {}
-    res +="\n"+body
+    res += body
     print "[INFO ] Send: " + answer
     print res
     client.sendall(res)
