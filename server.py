@@ -5,37 +5,113 @@ import socket
 import os
 import subprocess
 
+import signal
 
 PROPERTIES = {}
 ERRORS = {"400": "Bad Request", "404": "Not Found", "405": "Method Not Allowed"}
+MIME_TYPES = {}
+
+response_headers = {}
+
 
 class MethodNotAllowed(Exception):
     def __init__(self, message):
         self.message = message
 
+
 def get(first_line):
-    path = first_line.split(" ")[1].strip()
+    raw_path = first_line.split(" ")[1].strip()
+    splited_path = raw_path.split("?")
+    path = splited_path[0]
+    query = splited_path[1] if len(splited_path) > 1 else ""
+    # Root to index
+    '''if path == "/":
+        path = "/index.html"'''
+    full_path = get_full_path(path)
     print "[INFO ] Requested file: " + path
-    if path == "/":
-        path = "/index.html"
-    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"):
+    # Cgi-bin
+    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/") and os.path.isfile(path):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["POST_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("GET method isn't allowed on requested file")
-        os.environ["QUERY_STRING"] = path.split("?")[1]
-        full_path = PROPERTIES["HTTP_ROOT"] + path.split("?")[0]
+        os.environ["QUERY_STRING"] = query
         print "[DEBUG] Detected platform: " + platform.system()
         if platform.system() == 'Windows':
             full_path = full_path.replace("/", "\\")
-        print "[DEBUG] Full cgi-bin path: " + full_path
+        print "[INFO ] Executing cgi-bin: " + full_path
         pls = subprocess.Popen(
             [full_path], shell=True, stdout=subprocess.PIPE)
         return pls.stdout.read()
+    # File or directory
     else:
-        full_path =  PROPERTIES["HTTP_ROOT"] + path.split("?")[0]
+        if os.path.isdir(full_path):
+            if PROPERTIES["INDEX_REDIRECT"] == "True":
+                index_path = full_path + "/" + PROPERTIES["DIRECTORY_INDEX"]
+                if os.path.isfile(index_path):
+                    full_path = index_path
+                    print "[INFO ] Opening file: " + full_path
+                    with open(full_path) as f:
+                        return f.read()
+            return "\n" + generate_explorer(path)
         print "[INFO ] Opening file: " + full_path
-        with open(full_path) as f:
-            return f.read()
+        add_headers("Content-type", get_mime_type(path))
+        with open(full_path, 'rb') as f:
+            return "\n" + f.read()
+
+
+def get_parent_dir(path, n=1):
+    i = n * -1
+    if path.endswith("/"):
+        i -= 1
+    return "/".join(path.split("/")[:i])+"/"
+
+
+def get_mime_type(filename):
+    res = "text/plain"
+    try:
+        res = MIME_TYPES["." + filename.split(".")[-1]]
+    except Exception:
+        pass
+    return res
+
+
+def add_headers(key, value):
+    global response_headers
+    response_headers[key] = value
+
+
+def generate_explorer(path):
+    if not path.endswith("/"):
+        path += "/"
+    full_path = get_full_path(path)
+    print "[INFO ] Listing directory: " + full_path
+    title = "Index of " + path
+    list_html = ""
+    if path != "/":
+        list_html += "<img src=\"/icons/par.png\"/><a href=\"" + get_parent_dir(path) + "\">../</a>\n"
+    files = os.listdir(full_path)
+    files.sort(key=str.lower)
+    for e in files:
+        tmp_path = path + e
+        is_dir = os.path.isdir(get_full_path(tmp_path))
+        if is_dir:
+            list_html += "<img src=\"/icons/dir.png\"/><a href=\"{0}\">{1}</a>\n".format(tmp_path, e + "/")
+        else:
+            list_html += "<img src=\"/icons/fil.png\"/><a href=\"{0}\">{1}</a>\n".format(tmp_path, e)
+    res = "<html>\n" \
+          "  <head>\n" \
+          "    <title>" + title + "</title>\n" \
+          "  </head>\n" \
+          "  <body>\n" \
+          "    <h1>"+title+"</h1>\n" \
+          "    <hr/><pre>\n" \
+          + list_html + \
+          "<hr/></pre>\n" \
+          "<address>Powered by Slow As F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
+          "</body></html>"
+    add_headers("Content-type", MIME_TYPES[".html"])
+    return res
+
 
 def post(first_line, body):
     path = first_line.split(" ")[1].strip()
@@ -44,18 +120,24 @@ def post(first_line, body):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["GET_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("POST method isn't allowed on requested file")
-        print PROPERTIES["HTTP_ROOT"] + path
         pls = subprocess.Popen(
             [PROPERTIES["HTTP_ROOT"] + path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
         pls.stdin.write(body)
         pls.stdin.close()
         return pls.stdout.read()
 
+
 def send_ok(client, body):
+    global response_headers
     answer = "HTTP/1.1 200 OK"
-    res = answer+"\n\n"+body
+    res = answer + "\n"
+    for e in response_headers:
+        res += e + ": " + response_headers[e] + "\n"
+    response_headers = {}
+    res += body
     print "[INFO ] Send: " + answer
     client.sendall(res)
+
 
 def send_error(client, code, msg):
     error = str(code) + " " + ERRORS[str(code)]
@@ -73,6 +155,7 @@ def send_error(client, code, msg):
     print "[ERROR] " + error
     client.sendall(res)
 
+
 def client_read(client):
     return client.recv(int(PROPERTIES["BUFFER_SIZE"]))
 
@@ -85,17 +168,45 @@ def load_properties():
                 PROPERTIES[tmp[0]] = tmp[1]
         print "[INFO ] Detected properties: " + str(PROPERTIES)
     except IOError:
-        print "[FATAL] Cannot open server.properties. Make sure that the properties file is in the same directory as the server"
+        print "[FATAL] Cannot open server.properties. " \
+              "Make sure that the properties file is in the same directory as the server"
         exit(0)
 
 
+def load_mime_types():
+    with open("mime-type.csv") as f:
+        for line in f:
+            try:
+                [ext, mime] = line.strip().split(";")
+                MIME_TYPES[ext] = mime
+            except ValueError:
+                print "[WARNING] Malformed entry \"" + line + "\" in MIME-type file"
+
+
+def get_full_path(path):
+    return PROPERTIES["HTTP_ROOT"] + path
+
+
+def close_server(signal, frame):
+    print "[INFO ] Closing server..."
+    client.close()
+    sckt.close()
+    print "[INFO ] Server is now closed properly"
+
+
 def main():
+    global client, sckt
+
     print "[INFO ] Starting server..."
     load_properties()
+    load_mime_types();
     sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sckt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    sckt.bind((PROPERTIES["ADRESS"], int(PROPERTIES["PORT"])))
-    print "[INFO ] Now listening on " + PROPERTIES["ADRESS"] + ":" + str(PROPERTIES["PORT"]) +"\n"
+    sckt.bind((PROPERTIES["ADDRESS"], int(PROPERTIES["PORT"])))
+    print "[INFO ] Now listening on " + PROPERTIES["ADDRESS"] + ":" + str(PROPERTIES["PORT"]) + "\n"
+
+    #Signal handle
+    #signal.signal(signal.SIGINT, close_server)
 
     while True:
         sckt.listen(5)
@@ -157,10 +268,5 @@ def main():
         print "[INFO ] {} disconnected\n".format(address)
 
         # --- End of reading
-
-    print "[INFO ] Closing server..."
-    client.close()
-    sckt.close()
-    print "[INFO ] Server is now closed properly"
 
 main()
