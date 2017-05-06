@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # coding: utf-8
-
+import platform
 import socket
 import os
 import subprocess
@@ -23,11 +23,18 @@ def get(first_line):
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["POST_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("GET method isn't allowed on requested file")
         os.environ["QUERY_STRING"] = path.split("?")[1]
+        full_path = PROPERTIES["HTTP_ROOT"] + path.split("?")[0]
+        print "[DEBUG] Detected platform: " + platform.system()
+        if platform.system() == 'Windows':
+            full_path = full_path.replace("/", "\\")
+        print "[DEBUG] Full cgi-bin path: " + full_path
         pls = subprocess.Popen(
-            [PROPERTIES["HTTP_ROOT"] + path.split("?")[0]], stdout=subprocess.PIPE)
+            [full_path], shell=True, stdout=subprocess.PIPE)
         return pls.stdout.read()
     else:
-        with open(PROPERTIES["HTTP_ROOT"] + path) as f:
+        full_path =  PROPERTIES["HTTP_ROOT"] + path.split("?")[0]
+        print "[INFO ] Opening file: " + full_path
+        with open(full_path) as f:
             return f.read()
 
 def post(first_line, body):
@@ -140,7 +147,7 @@ def main():
                 send_ok(client, post(first_line, body))
             else:
                 raise Exception()
-        except (IOError, OSError):
+        except (IOError, OSError) as e:
             send_error(client, 404, "The requested file was not found on this server")
         except MethodNotAllowed as e:
             send_error(client, 405, e.message)

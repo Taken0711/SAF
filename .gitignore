@@ -87,3 +87,7 @@ ENV/
 
 # Rope project settings
 .ropeproject
+.idea/
+www/pub/cgi-bin/get-only/misc.py
+www/pub/Yolo/
+bookmarks.json
