@@ -30,7 +30,7 @@ def get(first_line):
     full_path = get_full_path(path)
     print "[INFO ] Requested file: " + path
     # Cgi-bin
-    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/") and os.path.isfile(path):
+    if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/") and os.path.isfile(full_path):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["POST_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("GET method isn't allowed on requested file")
@@ -115,13 +115,18 @@ def generate_explorer(path):
 
 def post(first_line, body):
     path = first_line.split(" ")[1].strip()
+    full_path = get_full_path(path)
     print "[INFO ] Requested file: " + path
     if path.startswith("/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"):
         if path.startswith(
                 "/"+PROPERTIES["CGI-BIN_DIRECTORY"]+"/"+PROPERTIES["GET_ONLY_DIRECTORY"]):
             raise MethodNotAllowed("POST method isn't allowed on requested file")
+        print "[DEBUG] Detected platform: " + platform.system()
+        if platform.system() == 'Windows':
+            full_path = full_path.replace("/", "\\")
+        print "[INFO ] Executing cgi-bin: " + full_path
         pls = subprocess.Popen(
-            [PROPERTIES["HTTP_ROOT"] + path], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+            [full_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE, shell=True)
         pls.stdin.write(body)
         pls.stdin.close()
         return pls.stdout.read()
