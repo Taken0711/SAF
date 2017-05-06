@@ -5,6 +5,7 @@ import socket
 import os
 import subprocess
 
+import signal
 
 PROPERTIES = {}
 ERRORS = {"400": "Bad Request", "404": "Not Found", "405": "Method Not Allowed"}
@@ -186,7 +187,16 @@ def get_full_path(path):
     return PROPERTIES["HTTP_ROOT"] + path
 
 
+def close_server(signal, frame):
+    print "[INFO ] Closing server..."
+    client.close()
+    sckt.close()
+    print "[INFO ] Server is now closed properly"
+
+
 def main():
+    global client, sckt
+
     print "[INFO ] Starting server..."
     load_properties()
     load_mime_types();
@@ -194,6 +204,9 @@ def main():
     sckt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sckt.bind((PROPERTIES["ADDRESS"], int(PROPERTIES["PORT"])))
     print "[INFO ] Now listening on " + PROPERTIES["ADDRESS"] + ":" + str(PROPERTIES["PORT"]) + "\n"
+
+    #Signal handle
+    #signal.signal(signal.SIGINT, close_server)
 
     while True:
         sckt.listen(5)
@@ -255,10 +268,5 @@ def main():
         print "[INFO ] {} disconnected\n".format(address)
 
         # --- End of reading
-
-    print "[INFO ] Closing server..."
-    client.close()
-    sckt.close()
-    print "[INFO ] Server is now closed properly"
 
 main()
