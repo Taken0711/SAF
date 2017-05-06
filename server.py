@@ -8,6 +8,9 @@ import subprocess
 
 PROPERTIES = {}
 ERRORS = {"400": "Bad Request", "404": "Not Found", "405": "Method Not Allowed"}
+MIME_TYPES = {}
+
+response_headers = {}
 
 
 class MethodNotAllowed(Exception):
@@ -50,7 +53,8 @@ def get(first_line):
                         return f.read()
             return generate_explorer(path)
         print "[INFO ] Opening file: " + full_path
-        with open(full_path) as f:
+        add_headers("Content-type", get_mime_type(path))
+        with open(full_path, 'rb') as f:
             return f.read()
 
 
@@ -59,6 +63,20 @@ def get_parent_dir(path, n=1):
     if path.endswith("/"):
         i -= 1
     return "/".join(path.split("/")[:i])+"/"
+
+
+def get_mime_type(filename):
+    res = "text/plain"
+    try:
+        res = MIME_TYPES["." + filename.split(".")[-1]]
+    except Exception:
+        pass
+    return res
+
+
+def add_headers(key, value):
+    global response_headers
+    response_headers[key] = value
 
 
 def generate_explorer(path):
@@ -78,7 +96,7 @@ def generate_explorer(path):
         if is_dir:
             list_html += "<img src=\"/icons/dir.png\"/><a href=\"{0}\">{1}</a>\n".format(tmp_path, e + "/")
         else:
-            list_html += "<img src=\"/icons/fil.png\"/><a href=\"{0}\">{1}</a>\n".format(tmp_path, e + "/")
+            list_html += "<img src=\"/icons/fil.png\"/><a href=\"{0}\">{1}</a>\n".format(tmp_path, e)
     res = "<html>\n" \
           "  <head>\n" \
           "    <title>" + title + "</title>\n" \
@@ -88,8 +106,9 @@ def generate_explorer(path):
           "    <hr/><pre>\n" \
           + list_html + \
           "<hr/></pre>\n" \
-          "<address>Powerred by Slow As F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
+          "<address>Powered by Slow As F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
           "</body></html>"
+    add_headers("Content-type", MIME_TYPES[".html"])
     return res
 
 
@@ -109,9 +128,15 @@ def post(first_line, body):
 
 
 def send_ok(client, body):
+    global response_headers
     answer = "HTTP/1.1 200 OK"
-    res = answer+"\n\n"+body
+    res = answer + "\n"
+    for e in response_headers:
+        res += e + ": " + response_headers[e] + "\n"
+    response_headers = {}
+    res +="\n"+body
     print "[INFO ] Send: " + answer
+    print res
     client.sendall(res)
 
 
@@ -149,6 +174,16 @@ def load_properties():
         exit(0)
 
 
+def load_mime_types():
+    with open("mime-type.csv") as f:
+        for line in f:
+            try:
+                [ext, mime] = line.strip().split(";")
+                MIME_TYPES[ext] = mime
+            except ValueError:
+                print "[WARNING] Malformed entry \"" + line + "\" in MIME-type file"
+
+
 def get_full_path(path):
     return PROPERTIES["HTTP_ROOT"] + path
 
@@ -156,6 +191,7 @@ def get_full_path(path):
 def main():
     print "[INFO ] Starting server..."
     load_properties()
+    load_mime_types();
     sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sckt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sckt.bind((PROPERTIES["ADDRESS"], int(PROPERTIES["PORT"])))

@@ -7,6 +7,7 @@
 #### Improvements
 * Split to regex ? especially when split first line in GET
 * OO and tests
+* Headers and response body must be handle by cgi-bin
 
 ## Configuration
 ### Property file
