@@ -107,7 +107,7 @@ def generate_explorer(path):
           "    <hr/><pre>\n" \
           + list_html + \
           "<hr/></pre>\n" \
-          "<address>Powered by Slow As F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
+          "<img src=\"/icons/slow_as_f.png\" width=\"107\" height=\"51\" /><address>Powered by Slow As F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
           "</body></html>"
     add_headers("Content-type", MIME_TYPES[".html"])
     return res
