@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 # coding: utf-8
-import glob
 import platform
 import socket
 import os
@@ -9,6 +8,7 @@ import subprocess
 
 PROPERTIES = {}
 ERRORS = {"400": "Bad Request", "404": "Not Found", "405": "Method Not Allowed"}
+
 
 class MethodNotAllowed(Exception):
     def __init__(self, message):
@@ -54,6 +54,13 @@ def get(first_line):
             return f.read()
 
 
+def get_parent_dir(path, n=1):
+    i = n * -1
+    if path.endswith("/"):
+        i -= 1
+    return "/".join(path.split("/")[:i])+"/"
+
+
 def generate_explorer(path):
     if not path.endswith("/"):
         path += "/"
@@ -61,6 +68,8 @@ def generate_explorer(path):
     print "[INFO ] Listing directory: " + full_path
     title = "Index of " + path
     list_html = ""
+    if path != "/":
+        list_html += "<a href=\"" + get_parent_dir(path) + "\">../</a>\n"
     files = os.listdir(full_path)
     files.sort(key=str.lower)
     for e in files:
@@ -69,12 +78,12 @@ def generate_explorer(path):
         list_html += "<a href=\"{0}\">{1}</a>\n".format(tmp_path, e + ("/" if is_dir else ""))
     res = "<html>\n" \
           "  <head>\n" \
-          "    <title>"+title+"</title>\n" \
+          "    <title>" + title + "</title>\n" \
           "  </head>\n" \
           "  <body>\n" \
           "    <h1>"+title+"</h1>\n" \
-          "    <pre>\n" \
-          +list_html+ \
+          "    <hr/><pre>\n" \
+          + list_html + \
           "<hr/></pre>\n" \
           "<address>Powerred by Slow As F*ck HTTP Server, Copyright &#9400; All rights reserved</address>\n" \
           "</body></html>"
@@ -132,7 +141,8 @@ def load_properties():
                 PROPERTIES[tmp[0]] = tmp[1]
         print "[INFO ] Detected properties: " + str(PROPERTIES)
     except IOError:
-        print "[FATAL] Cannot open server.properties. Make sure that the properties file is in the same directory as the server"
+        print "[FATAL] Cannot open server.properties. " \
+              "Make sure that the properties file is in the same directory as the server"
         exit(0)
 
 
@@ -146,7 +156,7 @@ def main():
     sckt = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sckt.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     sckt.bind((PROPERTIES["ADDRESS"], int(PROPERTIES["PORT"])))
-    print "[INFO ] Now listening on " + PROPERTIES["ADDRESS"] + ":" + str(PROPERTIES["PORT"]) +"\n"
+    print "[INFO ] Now listening on " + PROPERTIES["ADDRESS"] + ":" + str(PROPERTIES["PORT"]) + "\n"
 
     while True:
         sckt.listen(5)
